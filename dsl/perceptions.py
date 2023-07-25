@@ -19,11 +19,11 @@ IMG_PATH = "/home/agilex/sandbox_app/images/"
 img_cvt = ImageConverter()
 cv_bridge = CvBridge()
 
-rospy.init_node("image_retriever", anonymous=True)
+# rospy.init_node("image_retriever", anonymous=True)
 
 COLOR = None
 SIZE = None
-SIZE_THRESHOLD = 3200
+SIZE_THRESHOLD = 2000
 DESTINATION_MARK = "destination"
 
 
@@ -85,7 +85,7 @@ def scan():
         print(traceback.format_exc())
 
 
-def is_exist_traffic_light():
+def is_traffic_light_exist():
     return COLOR is not None
 
 
@@ -93,11 +93,12 @@ def is_traffic_light_green():
     return COLOR == "green"
 
 
-def is_safe_distance():
+def is_distance_safe():
+    print("safe size={}".format(SIZE))
     return SIZE is not None and SIZE <= SIZE_THRESHOLD
 
 
-def is_destination():
+def is_destination_reached():
     img_path = __retrieve_iamge(compression=None)
     decoded = __decode_qrcode(img_path)
     __delete_image(img_path)
@@ -134,14 +135,14 @@ if __name__ == "__main__":
         elif op == "scan":
             scan()
         elif op == "light?":
-            print(is_exist_traffic_light())
+            print(is_traffic_light_exist())
         elif op == "green?":
             print(is_traffic_light_green())
         elif op == "safe?":
-            print(is_safe_distance())
+            print(is_distance_safe())
         elif op == "o":
             __output_variables()
         elif op == "dest?":
-            print(is_destination())
+            print(is_destination_reached())
         else:
             print("{}Invalid operation '{}'{}".format("\033[0;31;47m", op, "\033[0m"))

@@ -2,17 +2,19 @@ import rospy
 import time
 from geometry_msgs.msg import Twist
 
+from utils.nodelet import mv_pub
+
 PUB_INTERVAL = 0.5
 ACTION_INTERVAL = 1
 MOVE_DIST = 0.2
 TURN_ANG = 0.1
 
-rospy.init_node("move_base_controller", anonymous=True)
-mv_pub = rospy.Publisher("/cmd_vel", Twist, queue_size=5)
+# rospy.init_node("move_base_controller", anonymous=True)
+# mv_pub = rospy.Publisher("/cmd_vel", Twist, queue_size=5)
 
 
-def assign_Twist(lx=.0, ly=.0, lz=.0,
-                 ax=.0, ay=.0, az=.0):
+def __assign_Twist(lx=.0, ly=.0, lz=.0,
+                   ax=.0, ay=.0, az=.0):
     msg = Twist()
 
     msg.linear.x = lx
@@ -27,19 +29,21 @@ def assign_Twist(lx=.0, ly=.0, lz=.0,
 
 
 def move_forward():
-    msg = assign_Twist(lx=MOVE_DIST)
+    # mv_pub = get_mv_pub()
+
+    msg = __assign_Twist(lx=MOVE_DIST)
     mv_pub.publish(msg)
     time.sleep(PUB_INTERVAL)
 
 
 def move_backward():
-    msg = assign_Twist(lx=-MOVE_DIST)
+    msg = __assign_Twist(lx=-MOVE_DIST)
     mv_pub.publish(msg)
     time.sleep(PUB_INTERVAL)
 
 
 def turn_left():
-    msg = assign_Twist(az=TURN_ANG)
+    msg = __assign_Twist(az=TURN_ANG)
     mv_pub.publish(msg)
 
     time.sleep(PUB_INTERVAL)
@@ -47,11 +51,15 @@ def turn_left():
 
 
 def turn_right():
-    msg = assign_Twist(az=-TURN_ANG)
+    msg = __assign_Twist(az=-TURN_ANG)
     mv_pub.publish(msg)
 
     time.sleep(PUB_INTERVAL)
     mv_pub.publish(msg)
+
+
+def wait():
+    time.sleep(ACTION_INTERVAL)
 
 
 if __name__ == "__main__":
