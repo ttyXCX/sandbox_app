@@ -29,8 +29,6 @@ def __assign_Twist(lx=.0, ly=.0, lz=.0,
 
 
 def move_forward():
-    # mv_pub = get_mv_pub()
-
     msg = __assign_Twist(lx=MOVE_DIST)
     mv_pub.publish(msg)
     time.sleep(PUB_INTERVAL)

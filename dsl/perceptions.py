@@ -9,7 +9,6 @@ import uuid
 import os
 import traceback
 
-# from ..utils.convert import ImageConverter
 from utils.convert import ImageConverter
 from cv_bridge import CvBridge
 
