@@ -22,6 +22,7 @@ cv_bridge = CvBridge()
 
 COLOR = None
 SIZE = None
+LIFTER_QRCODE = None
 SIZE_THRESHOLD = 2000
 DESTINATION_MARK = "destination"
 
@@ -102,6 +103,17 @@ def is_destination_reached():
     decoded = __decode_qrcode(img_path)
     __delete_image(img_path)
     return decoded == DESTINATION_MARK 
+
+
+def scan_lifter():
+    img_path = __retrieve_iamge(compression=None)
+    global LIFTER_QRCODE
+    LIFTER_QRCODE = __decode_qrcode(img_path)
+    __delete_image(img_path)
+
+
+def is_lifter_exist():
+    return LIFTER_QRCODE is not None
 
 
 if __name__ == "__main__":

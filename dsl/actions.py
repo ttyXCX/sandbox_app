@@ -1,7 +1,9 @@
 import rospy
 import time
 from geometry_msgs.msg import Twist
+from std_msgs.msg import UInt8
 
+from utils.lifter_control import LifterController
 from utils.nodelet import mv_pub
 
 PUB_INTERVAL = 0.5
@@ -11,6 +13,8 @@ TURN_ANG = 0.1
 
 # rospy.init_node("move_base_controller", anonymous=True)
 # mv_pub = rospy.Publisher("/cmd_vel", Twist, queue_size=5)
+
+lift_ctr = LifterController()
 
 
 def __assign_Twist(lx=.0, ly=.0, lz=.0,
@@ -60,6 +64,25 @@ def wait():
     time.sleep(ACTION_INTERVAL)
 
 
+def __assign_UInt8(data=1):
+    '''Deprecated function'''
+    msg = UInt8()
+    msg.data = data
+    return msg
+
+
+def lifter_up():
+    lift_ctr.up()
+
+
+def lifter_down():
+    lift_ctr.down()
+
+
+def lifter_hold():
+    lift_ctr.hold()
+
+
 if __name__ == "__main__":
     while (True):
         op = raw_input("input operation:")
@@ -74,5 +97,11 @@ if __name__ == "__main__":
             turn_left()
         elif op == "r":
             turn_right()
+        elif op == "lu":
+            lifter_up()
+        elif op == "ld":
+            lifter_down()
+        elif op == "lh":
+            lifter_hold()
         else:
             print("{}Invalid operation '{}'{}".format("\033[0;31;47m", op, "\033[0m"))
