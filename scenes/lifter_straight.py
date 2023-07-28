@@ -13,11 +13,18 @@ def run():
             print("moving forward - no lifter")
             move_forward()
         else:
-            lifter_up()
+            print("detected lifter - raise lifter")
+            while is_lifter_exist():
+                lifter_up()
+                scan_lifter()
             # 升降杆升起后经过三秒落下，需快速通过
+            print("lifter up - moving forward")
             move_forward()
             move_forward()
             move_forward()
+            print("passed lifter - down lifter")
+            for _ in range(100):
+                lifter_down()
 
     print("destination reached - done!")
 
