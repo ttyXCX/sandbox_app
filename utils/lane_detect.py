@@ -9,12 +9,20 @@ SRC = np.float32([(0.05, 0.7), (0.95, 0.7), (0.02, 1), (1, 1)])
 DST = np.float32([(0, 0), (1, 0), (0, 1), (1, 1)])
 DST_SIZE = (640, 480)
 
+LEFT_TOKEN = "left"
+RIGHT_TOKEN = "right"
+
 
 class LaneDetector(object):
     def __init__(self,
+                 left_token, right_token,
                  s_thresh=(100, 255), sx_thresh=(15, 255), h_thresh=(0, 50),
                  dst_size=DST_SIZE, perspec_src=SRC, perspec_dst=DST,
-                 nwindows=15, win_margin=60, win_minpix=250):
+                 nwindows=15, win_margin=60, win_minpix=250,
+                 lr_ratio=1.8, x_ratio=1.2):
+        self.LEFT_TOKEN = left_token
+        self.RIGHT_TOKEN = right_token
+
         # Lane filter
         self.s_thresh = s_thresh
         self.sx_thresh = sx_thresh
@@ -31,6 +39,10 @@ class LaneDetector(object):
         self.win_minpix = win_minpix
         self.LEFT_PIXEL_COLOR = [255, 0, 100]
         self.RIGHT_PIXEL_COLOR = [0, 100, 255]
+
+        # Correction
+        self.lr_ratio = lr_ratio
+        self.x_ratio = x_ratio
 
 
     @staticmethod
@@ -200,8 +212,92 @@ class LaneDetector(object):
         return filter_x, filter_y
 
 
+    def __decide_correction(self, leftx, rightx, width):
+
+        def __two_side_correction(leftx, rightx, lr_ratio):
+            pl = max(leftx) - min(leftx)
+            pr = max(rightx) - min(rightx)
+
+            if pl > pr:
+                ra = pl / pr
+                # print("ra =", ra)
+                if ra > lr_ratio: # towards left now
+                    return self.RIGHT_TOKEN
+            else:
+                ra = pr / pl
+                # print("ra =", ra)
+                if ra > lr_ratio: # towards right now
+                    return self.LEFT_TOKEN
+            return None
+
+        def __one_side_correction(x, point_range,
+                                  left_mode=True):
+            l, r = point_range
+            midpoint = (l + r) // 2
+
+            if left_mode:
+                leftx = x[((l <= x) & (x < midpoint))]
+            else: # right mode
+                leftx = x[x < midpoint]
+            if len(leftx) == 0:
+                return self.RIGHT_TOKEN
+
+            if left_mode:
+                rightx = x[midpoint <= x]
+            else: # right mode
+                rightx = x[((midpoint <= x) & (x < r))]
+            if len(rightx) == 0:
+                return self.LEFT_TOKEN
+
+            return __two_side_correction(rightx, leftx, self.lr_ratio)
+
+
+        corr = None
+        if leftx is not None and rightx is not None:
+            # print("two side")
+            corr = __two_side_correction(leftx, rightx, self.lr_ratio)
+        elif leftx is not None:
+            # print("left side")
+            prange = (0, width // 2)
+            corr = __one_side_correction(leftx, prange,
+                                         left_mode=True)
+        elif rightx is not None:
+            # print("right size")
+            prange = (width // 2, width)
+            corr = __one_side_correction(rightx, prange,
+                                         left_mode=False)
+        return corr
+
+
     def lane_correction(self, img,
-                        plot_img=True):
+                        plot_img=False):
+        def __plot():
+            # Visualize warp
+            f, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10))
+            ax1.imshow(img)
+            ax1.set_title('Original Image', fontsize=30)
+            ax2.imshow(feat_img, cmap='gray')
+            ax2.set_title('Warped Image', fontsize=30)
+            plt.show()
+            # Visualize sliding windows
+            f, (ax2, ax3) = plt.subplots(1, 2, figsize=(20, 10))
+            ax2.imshow(feat_img)
+            ax2.set_title('Filter+Perspective Tform', fontsize=30)
+
+            ax3.imshow(out_img)
+            if left_filter_x is not None:
+                ax3.plot(left_filter_x, left_filter_y, color='yellow', linewidth=10)
+            if right_filter_x is not None:
+                ax3.plot(right_filter_x, right_filter_y, color='yellow', linewidth=10)
+            ax3.set_title('Sliding window+Curve Fit', fontsize=30)
+
+            plt.subplots_adjust(left=0., right=1, top=0.9, bottom=0.)
+            plt.show()
+            # Visualize lane
+            img_ = lane_dt.draw_lanes(img, left_fitx, right_fitx)
+            plt.imshow(img_, cmap='hsv')
+            plt.show()
+
         h, w, _ = img.shape
         midpoint = w // 2
         left_range = (0, midpoint, 0, h)
@@ -216,44 +312,20 @@ class LaneDetector(object):
         out_img, leftx, lefty, rightx, righty = self.apply_sliding_windows(img=feat_img,
                                                                            draw_windows=plot_img)
         # lane curve detection
-        use_left, use_right = False, False
-        left_fitx, right_fitx = None, None
+        left_fitx, right_fitx, left_filter_x, right_filter_x = None, None, None, None
         if leftx is not None:
             left_fitx, ploty = self.fit_lane_curve(fit_range=left_range, x=leftx, y=lefty)
             left_filter_x, left_filter_y = self.__filter_curve(img_range, left_fitx, ploty)
-            use_left = True
         if rightx is not None:
             right_fitx, ploty = self.fit_lane_curve(fit_range=right_range, x=rightx, y=righty)
             right_filter_x, right_filter_y = self.__filter_curve(img_range, right_fitx, ploty)
-            use_right = True
 
-
+        # visualization
         if plot_img:
-            # Visualize warp
-            f, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10))
-            ax1.imshow(img)
-            ax1.set_title('Original Image', fontsize=30)
-            ax2.imshow(feat_img, cmap='gray')
-            ax2.set_title('Warped Image', fontsize=30)
-            plt.show()
-            # Visualize sliding windows
-            f, (ax2, ax3) = plt.subplots(1, 2, figsize=(20, 10))
-            ax2.imshow(feat_img)
-            ax2.set_title('Filter+Perspective Tform', fontsize=30)
+            __plot()
 
-            ax3.imshow(out_img)
-            if use_left:
-                ax3.plot(left_filter_x, left_filter_y, color='yellow', linewidth=10)
-            if use_right:
-                ax3.plot(right_filter_x, right_filter_y, color='yellow', linewidth=10)
-            ax3.set_title('Sliding window+Curve Fit', fontsize=30)
-
-            plt.subplots_adjust(left=0., right=1, top=0.9, bottom=0.)
-            plt.show()
-            # Visualize lane
-            img_ = lane_dt.draw_lanes(img, left_fitx, right_fitx)
-            plt.imshow(img_, cmap='hsv')
-            plt.show()
+        # make correction decision
+        return self.__decide_correction(leftx=left_filter_x, rightx=right_filter_x, width=w)
 
 
     @staticmethod
@@ -304,14 +376,16 @@ class LaneDetector(object):
 
 
 if __name__ == "__main__":
-    img_path = "./images/lane_tilt_left2.png"
+    img_path = "./images/lane_right.png"
     # img_path = "./lane_true3.jpg"
-    lane_dt = LaneDetector()
+    lane_dt = LaneDetector(left_token=LEFT_TOKEN, right_token=RIGHT_TOKEN)
 
     img = cv2.imread(img_path)
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-    lane_dt.lane_correction(img)
+    corr = lane_dt.lane_correction(img, plot_img=True)
+    print(corr)
+
     # dst = lane_dt.filter_pipeline(img)
     # # cv2.imwrite("./images/pipeline.png", dst)
     #
