@@ -22,7 +22,7 @@ class LifterController:
     
     def up(self):
         self.serial_port.write("#UP".encode('utf-8'))
-        for index in range(10):
+        for index in range(30):
             
             if(self.serial_port.readline().encode('utf-8')== "CMD UP"):
                 print("CMD UP")
@@ -33,7 +33,7 @@ class LifterController:
 
     def down(self):
         self.serial_port.write("#DOWN".encode('utf-8'))
-        for index in range(10):
+        for index in range(30):
             
             if(self.serial_port.readline().encode('utf-8')== "CMD DOWN"):
                 print("CMD DOWN")

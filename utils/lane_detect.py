@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import warnings
 warnings.filterwarnings("ignore")
 
-SRC = np.float32([(0.05, 0.7), (0.95, 0.7), (0.02, 1), (1, 1)])
+SRC = np.float32([(0.05, 0.8), (0.95, 0.8), (0.02, 1), (1, 1)])
 DST = np.float32([(0, 0), (1, 0), (0, 1), (1, 1)])
 DST_SIZE = (640, 480)
 
@@ -15,10 +15,10 @@ RIGHT_TOKEN = "right"
 
 class LaneDetector(object):
     def __init__(self,
-                 left_token, right_token,
+                 left_token=LEFT_TOKEN, right_token=RIGHT_TOKEN,
                  s_thresh=(100, 255), sx_thresh=(15, 255), h_thresh=(0, 50),
                  dst_size=DST_SIZE, perspec_src=SRC, perspec_dst=DST,
-                 nwindows=15, win_margin=60, win_minpix=250,
+                 nwindows=15, win_margin=100, win_minpix=250,
                  lr_ratio=1.8, x_ratio=1.2):
         self.LEFT_TOKEN = left_token
         self.RIGHT_TOKEN = right_token
@@ -232,6 +232,7 @@ class LaneDetector(object):
 
         def __one_side_correction(x, point_range,
                                   left_mode=True):
+            # right_mode = not left_mode
             l, r = point_range
             midpoint = (l + r) // 2
 
@@ -239,20 +240,50 @@ class LaneDetector(object):
                 leftx = x[((l <= x) & (x < midpoint))]
             else: # right mode
                 leftx = x[x < midpoint]
-            if len(leftx) == 0:
-                return self.RIGHT_TOKEN
 
             if left_mode:
                 rightx = x[midpoint <= x]
             else: # right mode
                 rightx = x[((midpoint <= x) & (x < r))]
-            if len(rightx) == 0:
-                return self.LEFT_TOKEN
+
+            if len(leftx) == 0 or len(rightx) == 0:
+                return self.RIGHT_TOKEN if left_mode else self.LEFT_TOKEN            
+
+            '''
+
+            if left_mode and len(leftx) == 0:
+                dr = rightx[0] - rightx[-1]
+                if dr > 0:
+                    return self.RIGHT_TOKEN
+                else:
+                    return self.LEFT_TOKEN
+
+            if left_mode and len(rightx) == 0:
+                dr = leftx[0] - leftx[-1]
+                if dr > 0:
+                    return self.RIGHT_TOKEN
+                else:
+                    return self.LEFT_TOKEN
+
+            if right_mode and len(leftx) == 0:
+                dr = rightx[0] - rightx[-1]
+                if dr > 0:
+                    return self.RIGHT_TOKEN
+                else:
+                    return self.LEFT_TOKEN
+
+            if right_mode and len(rightx) == 0:
+                dr = leftx[0] - leftx[-1]
+                if dr > 0:
+                    return self.RIGHT_TOKEN
+                else:
+                    return self.LEFT_TOKEN
+            '''
 
             return __two_side_correction(rightx, leftx, self.lr_ratio)
 
 
-        corr = None
+        corr = self.RIGHT_TOKEN #None
         if leftx is not None and rightx is not None:
             # print("two side")
             corr = __two_side_correction(leftx, rightx, self.lr_ratio)
@@ -294,7 +325,7 @@ class LaneDetector(object):
             plt.subplots_adjust(left=0., right=1, top=0.9, bottom=0.)
             plt.show()
             # Visualize lane
-            img_ = lane_dt.draw_lanes(img, left_fitx, right_fitx)
+            img_ = self.draw_lanes(img, left_fitx, right_fitx)
             plt.imshow(img_, cmap='hsv')
             plt.show()
 
@@ -383,7 +414,7 @@ if __name__ == "__main__":
     img = cv2.imread(img_path)
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-    corr = lane_dt.lane_correction(img, plot_img=True)
+    corr = lane_dt.lane_correction(img, plot_img=False)
     print(corr)
 
     # dst = lane_dt.filter_pipeline(img)

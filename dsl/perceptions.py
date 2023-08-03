@@ -10,6 +10,7 @@ import os
 import traceback
 
 from utils.convert import ImageConverter
+from utils.lane_detect import LaneDetector
 from cv_bridge import CvBridge
 
 URL = "http://47.101.169.122:8762/vision/detect_traffic_light_color"
@@ -17,9 +18,11 @@ IMG_PATH = "/home/agilex/sandbox_app/images/"
 
 img_cvt = ImageConverter()
 cv_bridge = CvBridge()
+lane_dtc = LaneDetector()
 
 # rospy.init_node("image_retriever", anonymous=True)
 
+RGB_TOPIC = "/camera/rgb/image_raw"
 COLOR = None
 SIZE = None
 LIFTER_QRCODE = None
@@ -27,12 +30,17 @@ SIZE_THRESHOLD = 2000
 DESTINATION_MARK = "destination"
 
 
+def __get_rgb_img_from_ros():
+    rgb_image = rospy.wait_for_message(RGB_TOPIC, Image, timeout=1) # rgb format
+    return rgb_image
+
+
 def __retrieve_iamge(compression=None):
-    rgb_Image = rospy.wait_for_message("/camera/rgb/image_raw", Image, timeout=1)
-    # height, width, rgb_data = rgb_Image.height, rgb_Image.width, rgb_Image.data
+    rgb_image = __get_rgb_img_from_ros()
+    # height, width, rgb_data = rgb_image.height, rgb_image.width, rgb_image.data
     img_name = uuid.uuid1().hex
     ## reorganize rgb img data
-    cv_img = cv_bridge.imgmsg_to_cv2(rgb_Image, desired_encoding="passthrough") # RGB
+    cv_img = cv_bridge.imgmsg_to_cv2(rgb_image, desired_encoding="passthrough") # RGB
 
     if compression is not None:
         cv_img = img_cvt.compress_image(cv_img, ratio=compression)
@@ -116,6 +124,13 @@ def is_lifter_exist():
     return LIFTER_QRCODE is not None
 
 
+def lane_assist():
+    img = __get_rgb_img_from_ros()
+    img = cv_bridge.imgmsg_to_cv2(img, desired_encoding="passthrough") # RGB
+    dir_corr = lane_dtc.lane_correction(img, plot_img=False)
+    return dir_corr
+
+
 if __name__ == "__main__":
     '''
     decode qrcode
@@ -155,5 +170,7 @@ if __name__ == "__main__":
             __output_variables()
         elif op == "dest?":
             print(is_destination_reached())
+        elif op == "lane?":
+            print(lane_assist())
         else:
             print("{}Invalid operation '{}'{}".format("\033[0;31;47m", op, "\033[0m"))
